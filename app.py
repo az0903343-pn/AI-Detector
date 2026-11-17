@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import importlib
 import json
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -12,15 +14,63 @@ import streamlit as st
 
 st.set_page_config(page_title="AI Employee Monitoring", layout="wide")
 
-try:
-    from monitor.config import Settings
-    from monitor.pipeline import MonitorPipeline
-    from monitor.zones import grid_zones, zones_to_json
-except ModuleNotFoundError as exc:  # deployment guard: folder not pushed
-    st.error(f"Python import failed: {exc}")
+APP_ROOT = Path(__file__).resolve().parent
+
+
+def _monitor_parents() -> list[Path]:
+    skip = {".git", "venv", ".venv", "node_modules", "__pycache__"}
+    parents = []
+    for match in APP_ROOT.rglob("pipeline.py"):
+        if any(part in skip for part in match.parts):
+            continue
+        if match.parent.name == "monitor" and (match.parent / "__init__.py").is_file():
+            parents.append(match.parent.parent)
+    return parents
+
+
+def _import_monitor():
+    try:
+        from monitor.config import Settings
+        from monitor.pipeline import MonitorPipeline
+        from monitor.zones import grid_zones, zones_to_json
+        return Settings, MonitorPipeline, grid_zones, zones_to_json, None
+    except ModuleNotFoundError as exc:
+        name = exc.name or ""
+        if name != "monitor" and not name.startswith("monitor."):
+            return None, None, None, None, exc
+        # the folder may have been uploaded inside another folder - find and retry
+        for parent in _monitor_parents():
+            if str(parent) in sys.path:
+                continue
+            sys.path.insert(0, str(parent))
+            importlib.invalidate_caches()
+            try:
+                from monitor.config import Settings
+                from monitor.pipeline import MonitorPipeline
+                from monitor.zones import grid_zones, zones_to_json
+                return Settings, MonitorPipeline, grid_zones, zones_to_json, None
+            except ModuleNotFoundError:
+                sys.path.remove(str(parent))
+        return None, None, None, None, exc
+
+
+Settings, MonitorPipeline, grid_zones, zones_to_json, _import_error = _import_monitor()
+
+if _import_error is not None:
+    st.error(f"Python import failed: {_import_error}")
+    st.markdown("**Files deployed at the app root:**")
+    listing = sorted(
+        entry.name + ("/" if entry.is_dir() else "")
+        for entry in APP_ROOT.iterdir()
+        if entry.name != "__pycache__"
+    )
+    st.code("\n".join(listing) or "(empty)", language="text")
+    found = [str(parent.relative_to(APP_ROOT)) + "/monitor" for parent in _monitor_parents()]
+    if found:
+        st.warning("Found a monitor package at: " + ", ".join(found))
     st.markdown(
-        "The `monitor/` package is missing from the deployed repository. "
-        "It must sit next to `app.py` at the repo root, lowercase, with these files:"
+        "The `monitor/` package must sit next to `app.py` at the repo root, "
+        "lowercase, with these files:"
     )
     st.code(
         "monitor/__init__.py\n"
