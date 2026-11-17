@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# model weights: keep repo small; put shipped weights in models/ (see README)
+*.pt
+!models/*.pt
+*.onnx
+!models/*.onnx
+
+# run artifacts
+runs/
+alerts/
+alerts_out/
+outputs/
+data/
+*.log
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

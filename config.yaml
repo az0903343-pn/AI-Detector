@@ -1,0 +1,53 @@
+# Runtime configuration for the employee monitoring pipeline.
+# Copy/rename if you like, then pass --config your_file.yaml to scripts.
+
+detector:
+  person_model: yolov8n.pt   # COCO weights; or weights/best.pt from training/train_yolo.py
+  phone_model: ""            # optional custom YOLO phone weights
+  device: ""                 # "" = auto, else "cpu", "0", "cuda:0"
+  imgsz: 960
+  conf: 0.35
+  iou: 0.5
+  tracker: bytetrack.yaml
+  person_classes: [0]        # COCO class 0 = person
+  coco_phone_class: 67
+  detect_phone_with_person_model: true
+
+activity:
+  phone_conf: 0.35
+  phone_dwell_s: 1.0         # phone must persist this long before the state flips
+  phone_hit_ratio: 0.5       # share of recent frames that must contain a phone
+  phone_window_s: 1.5
+  min_work_dwell_s: 0.6
+  classifier_model: ""       # e.g. models/activity_classifier.onnx
+  classifier_threshold: 0.6
+
+desks:
+  absent_after_s: 5.0        # empty desk -> ABSENT after this many seconds
+  max_assign_dist: 0.14      # normalized distance for person -> desk assignment
+  # Six desks in a 3x2 grid (normalized 0-1 coordinates).
+  # Re-draw for your camera with scripts/make_zones.py.
+  zones:
+    - name: ID 1
+      points: [[0.06, 0.08], [0.46, 0.08], [0.46, 0.3267], [0.06, 0.3267]]
+    - name: ID 2
+      points: [[0.54, 0.08], [0.94, 0.08], [0.94, 0.3267], [0.54, 0.3267]]
+    - name: ID 3
+      points: [[0.06, 0.3767], [0.46, 0.3767], [0.46, 0.6233], [0.06, 0.6233]]
+    - name: ID 4
+      points: [[0.54, 0.3767], [0.94, 0.3767], [0.94, 0.6233], [0.54, 0.6233]]
+    - name: ID 5
+      points: [[0.06, 0.6733], [0.46, 0.6733], [0.46, 0.92], [0.06, 0.92]]
+    - name: ID 6
+      points: [[0.54, 0.6733], [0.94, 0.6733], [0.94, 0.92], [0.54, 0.92]]
+
+alerts:
+  cooldown_s: 30
+  phone_alert: true
+  absent_alert: true
+  save_snapshots: false
+  snapshot_dir: alerts
+
+render:
+  show_panel: true
+  show_track_id: false
