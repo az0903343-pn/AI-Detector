@@ -8,7 +8,7 @@ detector:
   imgsz: 960
   conf: 0.35
   iou: 0.5
-  tracker: bytetrack.yaml
+  tracker: bytetrack.yaml    # legacy key, ignored (built-in IoU tracker is used)
   person_classes: [0]        # COCO class 0 = person
   coco_phone_class: 67
   detect_phone_with_person_model: true
