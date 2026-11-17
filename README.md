@@ -168,6 +168,34 @@ tests/                      unit tests for state, zones, config
 python -m unittest discover -s tests -v
 ```
 
+## Troubleshooting
+
+**`ModuleNotFoundError` / `from monitor.config import Settings` on Streamlit Cloud**
+
+The Python package folder did not reach GitHub. The repo root must look like this:
+
+```
+app.py
+config.yaml
+requirements.txt
+packages.txt
+monitor/
+  __init__.py
+  config.py
+  detector.py
+  zones.py
+  state.py
+  alerts.py
+  activity.py
+  render.py
+  pipeline.py
+```
+
+Fix: upload/push the `monitor/` folder (GitHub web: **Add file -> Upload files**,
+drag the folder), then **Manage app -> Reboot** in Streamlit Cloud. If files were
+uploaded loose (e.g. `config.py` at the repo root), delete them and upload the folder
+with its name so imports resolve.
+
 ## Limitations
 
 - A single fixed camera per zone; overlapping desks need tighter polygons.

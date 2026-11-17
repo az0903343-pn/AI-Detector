@@ -10,11 +10,40 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from monitor.config import Settings
-from monitor.pipeline import MonitorPipeline
-from monitor.zones import grid_zones, zones_to_json
-
 st.set_page_config(page_title="AI Employee Monitoring", layout="wide")
+
+try:
+    from monitor.config import Settings
+    from monitor.pipeline import MonitorPipeline
+    from monitor.zones import grid_zones, zones_to_json
+except ModuleNotFoundError as exc:  # deployment guard: folder not pushed
+    st.error(f"Python import failed: {exc}")
+    st.markdown(
+        "The `monitor/` package is missing from the deployed repository. "
+        "It must sit next to `app.py` at the repo root, lowercase, with these files:"
+    )
+    st.code(
+        "monitor/__init__.py\n"
+        "monitor/config.py\n"
+        "monitor/detector.py\n"
+        "monitor/zones.py\n"
+        "monitor/state.py\n"
+        "monitor/alerts.py\n"
+        "monitor/activity.py\n"
+        "monitor/render.py\n"
+        "monitor/pipeline.py",
+        language="text",
+    )
+    st.markdown(
+        "Push the folder to GitHub, then reboot the app "
+        "(**Manage app** -> **Reboot** in the bottom-right menu)."
+    )
+    st.code(
+        'git add monitor\ngit status --short\n'
+        'git commit -m "add monitor package"\ngit push',
+        language="bash",
+    )
+    st.stop()
 
 CONFIG_PATH = Path("config.yaml")
 
