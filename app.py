@@ -5,6 +5,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import types
 from pathlib import Path
 
 import cv2
@@ -15,17 +16,57 @@ import streamlit as st
 st.set_page_config(page_title="AI Employee Monitoring", layout="wide")
 
 APP_ROOT = Path(__file__).resolve().parent
+_SKIP_DIRS = {".git", "venv", ".venv", "node_modules", "__pycache__"}
+_MONITOR_MODULES = [
+    "config", "zones", "state", "alerts", "detector", "activity", "render", "pipeline",
+]
 
 
 def _monitor_parents() -> list[Path]:
-    skip = {".git", "venv", ".venv", "node_modules", "__pycache__"}
     parents = []
     for match in APP_ROOT.rglob("pipeline.py"):
-        if any(part in skip for part in match.parts):
+        if any(part in _SKIP_DIRS for part in match.parts):
             continue
         if match.parent.name == "monitor" and (match.parent / "__init__.py").is_file():
             parents.append(match.parent.parent)
     return parents
+
+
+def _module_files() -> dict[str, Path]:
+    found: dict[str, Path] = {}
+    for name in _MONITOR_MODULES:
+        candidates = sorted(
+            (
+                path
+                for path in APP_ROOT.rglob(f"{name}.py")
+                if not any(part in _SKIP_DIRS for part in path.parts)
+            ),
+            key=lambda path: len(path.parts),
+        )
+        for path in candidates:
+            if name == "config":
+                text = path.read_text(encoding="utf-8", errors="ignore")
+                if "class Settings" not in text:
+                    continue
+            found[name] = path
+            break
+    return found
+
+
+def _install_flat_monitor() -> bool:
+    """Support repos where the folder structure was flattened by the uploader."""
+    files = _module_files()
+    if len(files) != len(_MONITOR_MODULES):
+        return False
+    package = types.ModuleType("monitor")
+    package.__path__ = [str(APP_ROOT)]
+    sys.modules["monitor"] = package
+    for name in _MONITOR_MODULES:
+        spec = importlib.util.spec_from_file_location(f"monitor.{name}", files[name])
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[f"monitor.{name}"] = module
+        spec.loader.exec_module(module)
+    return True
 
 
 def _import_monitor():
@@ -51,6 +92,14 @@ def _import_monitor():
                 return Settings, MonitorPipeline, grid_zones, zones_to_json, None
             except ModuleNotFoundError:
                 sys.path.remove(str(parent))
+        try:
+            if _install_flat_monitor():
+                from monitor.config import Settings
+                from monitor.pipeline import MonitorPipeline
+                from monitor.zones import grid_zones, zones_to_json
+                return Settings, MonitorPipeline, grid_zones, zones_to_json, None
+        except ModuleNotFoundError as flat_exc:
+            return None, None, None, None, flat_exc
         return None, None, None, None, exc
 
 
@@ -68,6 +117,12 @@ if _import_error is not None:
     found = [str(parent.relative_to(APP_ROOT)) + "/monitor" for parent in _monitor_parents()]
     if found:
         st.warning("Found a monitor package at: " + ", ".join(found))
+    detected = _module_files()
+    st.markdown(
+        "**Monitor modules detected:** "
+        + (", ".join(sorted(detected)) if detected else "none")
+        + f" ({len(detected)}/{len(_MONITOR_MODULES)})"
+    )
     st.markdown(
         "The `monitor/` package must sit next to `app.py` at the repo root, "
         "lowercase, with these files:"
