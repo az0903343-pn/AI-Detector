@@ -143,6 +143,15 @@ if _import_error is not None:
 
 from monitor.state import ABSENT, PHONE, WORKING  # noqa: E402
 
+_detector_file = getattr(sys.modules.get("monitor.detector"), "__file__", "") or ""
+if _detector_file and Path(_detector_file).is_file():
+    if "IoUTracker" not in Path(_detector_file).read_text(encoding="utf-8", errors="ignore"):
+        st.warning(
+            "An older `detector.py` is deployed. Upload the latest "
+            "`monitor/detector.py` (it uses the built-in IoU tracker) to avoid "
+            "the `No module named 'lap'` error."
+        )
+
 CONFIG_PATH = Path("config.yaml")
 STATE_CLASS = {WORKING: "working", PHONE: "phone", ABSENT: "absent"}
 
